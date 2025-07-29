@@ -45,8 +45,8 @@ class CoACDCapsulePipeline:
             print("Step 1: Loading mesh with GLTF parser")
             
             # Use existing GLTF parser
-            from gltf_parser import GLTFParser
-            from mesh_data_extractor import MeshDataExtractor
+            from .gltf_parser import GLTFParser
+            from .mesh_data_extractor import MeshDataExtractor
             
             # Load GLTF data
             self.gltf_parser = GLTFParser()

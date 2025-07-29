@@ -16,6 +16,11 @@ array[1..3] of float: max_pos;  % Global mesh bounds
 float: max_radius;  % Maximum allowed capsule radius
 float: max_length;  % Maximum allowed capsule length
 
+% Optional witness point coverage data (for enhanced coverage)
+int: num_points = 0;  % Number of witness points (0 if not using coverage)
+array[1..num_points, 1..3] of float: witness_points;  % Witness points to be covered
+array[1..n_capsules, 1..num_points] of bool: coverage_matrix;  % Coverage matrix (0 if not using coverage)
+
 % Reduced optimization weights for faster convergence
 int: coverage_weight = 50;
 int: count_penalty = 2;
@@ -60,6 +65,13 @@ constraint forall(i in 1..n_capsules)(
 
 % Minimum number of active capsules (adaptive based on available capsules)
 constraint sum(i in 1..n_capsules)(capsule_active[i]) >= min(n_capsules, 1);
+
+% Witness point coverage constraint (only if coverage data is provided)
+constraint if num_points > 0 then
+    forall(p in 1..num_points) (
+        sum(c in 1..n_capsules)(capsule_active[c] /\ (coverage_matrix[c, p] = 1)) >= 1
+    )
+else true endif;
 
 % No parent-child constraints - capsules use weight painting only
 

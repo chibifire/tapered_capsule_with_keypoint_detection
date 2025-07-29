@@ -39,7 +39,8 @@ def main():
     
     # List of test scripts to run
     test_scripts = [
-        "test_coacd_pipeline.py"
+        "test_coacd_pipeline.py",
+        "test_shapes.py"
     ]
     
     # Run each test script

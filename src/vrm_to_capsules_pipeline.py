@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 Complete VRM to Tapered Capsules Pipeline.
-Analyzes VRM mesh, runs constraint optimization, and generates Godot scenes.
+Analyzes VRM mesh, runs constraint optimization with witness point coverage, and generates GLTF output.
 """
 
 import os
 import sys
 import subprocess
 import tempfile
+import numpy as np
 from pathlib import Path
 from .vrm_mesh_analyzer import VRMMeshAnalyzer
 
@@ -28,6 +29,13 @@ class VRMCapsulePipeline:
         
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize mesh data
+        self.vertices = None
+        self.triangles = None
+        self.bone_weights = None
+        self.bone_indices = None
+        self.joint_names = []
         
     def __del__(self):
         """Clean up temporary files."""
@@ -54,6 +62,13 @@ class VRMCapsulePipeline:
         # Print analysis summary
         analyzer.print_analysis_summary()
         
+        # Store mesh data for witness point sampling
+        self.vertices = analyzer.mesh_data_extractor.get_vertices()
+        self.triangles = analyzer.mesh_data_extractor.get_triangles()
+        self.bone_weights = analyzer.mesh_data_extractor.get_bone_weights()
+        self.bone_indices = analyzer.mesh_data_extractor.get_bone_indices()
+        self.joint_names = analyzer.skeleton_analyzer.get_joint_names()
+        
         # Generate constraint data for Gecode (float values)
         self.constraints_file = self.output_dir / f"{self.vrm_path.stem}_constraints.dzn"
         if not analyzer.save_gecode_data(str(self.constraints_file), max_capsules):
@@ -72,8 +87,181 @@ class VRMCapsulePipeline:
         print(f"Generated float data: {self.float_constraints_file}")
         return True
     
+    def sample_witness_points(self, num_points: int = 5000) -> np.ndarray:
+        """Sample witness points from mesh interior for coverage verification."""
+        print(f"Step 1b: Sampling {num_points} witness points from mesh")
+        
+        if self.vertices is None or len(self.vertices) == 0:
+            print("  ❌ No vertex data available for sampling")
+            return None
+        
+        try:
+            # Convert to numpy array
+            vertices = np.array(self.vertices)
+            
+            # Calculate mesh bounds
+            min_bounds = np.min(vertices, axis=0)
+            max_bounds = np.max(vertices, axis=0)
+            
+            # Sample points within mesh bounds
+            # In a more sophisticated implementation, we'd sample within the actual mesh volume
+            # For now, we'll sample uniformly within the bounding box
+            witness_points = np.random.uniform(min_bounds, max_bounds, (num_points, 3))
+            
+            print(f"  ✅ Sampled {len(witness_points)} witness points")
+            return witness_points
+            
+        except Exception as e:
+            print(f"  ❌ Error sampling witness points: {e}")
+            return None
+    
+    def build_coverage_matrix(self, witness_points: np.ndarray) -> np.ndarray:
+        """Build coverage matrix using bone geometry data."""
+        print("Step 1c: Building coverage matrix from bone geometry")
+        
+        if witness_points is None or len(witness_points) == 0:
+            print("  ❌ No witness points available")
+            return None
+        
+        # Load the constraint data to get bone information
+        if not hasattr(self, 'constraints_file') or not self.constraints_file.exists():
+            print("  ❌ No constraint data available")
+            return None
+        
+        try:
+            # Parse the constraint file to get bone data
+            with open(self.constraints_file, 'r') as f:
+                constraint_data = f.read()
+            
+            # Extract bone information from constraint data
+            import re
+            
+            # Extract n_capsules
+            n_capsules_match = re.search(r'n_capsules = (\d+);', constraint_data)
+            if not n_capsules_match:
+                print("  ❌ Could not find n_capsules in constraint data")
+                return None
+            n_capsules = int(n_capsules_match.group(1))
+            
+            # Extract bone_centers
+            bone_centers_match = re.search(r'bone_centers = array2d\(1\.\.(\d+), 1\.\.3, \[([^\]]+)\]\);', constraint_data)
+            if not bone_centers_match:
+                print("  ❌ Could not find bone_centers in constraint data")
+                return None
+            
+            centers_str = bone_centers_match.group(2)
+            center_values = [float(x.strip()) for x in centers_str.split(',')]
+            bone_centers = np.array(center_values).reshape(n_capsules, 3)
+            
+            # Extract bone_sizes
+            bone_sizes_match = re.search(r'bone_sizes = array2d\(1\.\.(\d+), 1\.\.3, \[([^\]]+)\]\);', constraint_data)
+            if not bone_sizes_match:
+                print("  ❌ Could not find bone_sizes in constraint data")
+                return None
+            
+            sizes_str = bone_sizes_match.group(2)
+            size_values = [float(x.strip()) for x in sizes_str.split(',')]
+            bone_sizes = np.array(size_values).reshape(n_capsules, 3)
+            
+            print(f"  Found {n_capsules} bones for coverage matrix")
+            
+            # Initialize coverage matrix
+            num_points = len(witness_points)
+            coverage_matrix = np.zeros((n_capsules, num_points), dtype=bool)
+            
+            # For each witness point, check which bones it's close to
+            for i, point in enumerate(witness_points):
+                for j in range(n_capsules):
+                    # Check if point is within the bone's bounding box
+                    center = bone_centers[j]
+                    size = bone_sizes[j]
+                    
+                    # Calculate bounds for this bone
+                    min_bound = center - size / 2
+                    max_bound = center + size / 2
+                    
+                    # Check if point is within bounds
+                    if np.all(point >= min_bound) and np.all(point <= max_bound):
+                        coverage_matrix[j, i] = True
+            
+            print(f"  ✅ Built {n_capsules}x{num_points} coverage matrix")
+            print(f"     Total covered points: {np.sum(np.any(coverage_matrix, axis=0))}/{num_points}")
+            
+            return coverage_matrix
+            
+        except Exception as e:
+            print(f"  ❌ Error building coverage matrix: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def create_enhanced_constraint_data(self, witness_points: np.ndarray, coverage_matrix: np.ndarray) -> bool:
+        """Create enhanced constraint data with witness point coverage."""
+        print("Step 1d: Creating enhanced constraint data with coverage matrix")
+        
+        if witness_points is None or coverage_matrix is None:
+            print("  ❌ No witness point data or coverage matrix available")
+            return False
+        
+        try:
+            # Read the original constraint data
+            with open(self.constraints_file, 'r') as f:
+                original_data = f.read()
+            
+            # Remove any existing witness point data from the original data
+            import re
+            # Remove existing witness point section (everything from the comment to the end)
+            # This is a more robust approach - remove everything from the witness point comment onwards
+            lines = original_data.split('\n')
+            witness_section_start = -1
+            for i, line in enumerate(lines):
+                if '% Witness point coverage data' in line:
+                    witness_section_start = i
+                    break
+            
+            if witness_section_start >= 0:
+                # Remove the witness point section
+                lines = lines[:witness_section_start]
+                original_data = '\n'.join(lines)
+            
+            # Append coverage matrix data to the constraint file
+            enhanced_data = original_data.rstrip() + "\n\n"
+            enhanced_data += "% Witness point coverage data\n"
+            enhanced_data += f"num_points = {len(witness_points)};\n"
+            
+            # Add witness points
+            points_list = []
+            for point in witness_points:
+                points_list.append(f"[{point[0]:.6f}, {point[1]:.6f}, {point[2]:.6f}]")
+            enhanced_data += f"witness_points = array2d(1..{len(witness_points)}, 1..3, [{', '.join(points_list)}]);\n"
+            
+            # Add coverage matrix (as a flattened array)
+            coverage_flat = coverage_matrix.flatten().astype(int).tolist()
+            enhanced_data += f"coverage_matrix = array2d(1..{coverage_matrix.shape[0]}, 1..{coverage_matrix.shape[1]}, [{', '.join(map(str, coverage_flat))}]);\n"
+            
+            # Save enhanced constraint data
+            self.enhanced_constraints_file = self.output_dir / f"{self.vrm_path.stem}_enhanced_constraints.dzn"
+            with open(self.enhanced_constraints_file, 'w') as f:
+                f.write(enhanced_data)
+            
+            print(f"  ✅ Created enhanced constraint data: {self.enhanced_constraints_file}")
+            return True
+            
+        except Exception as e:
+            print(f"  ❌ Error creating enhanced constraint data: {e}")
+            return False
+    
     def run_single_optimization(self, capsule_count: int, timeout: int = 300, solver: str = "gecode") -> tuple[bool, str]:
         """Run a single optimization attempt with specified parameters."""
+        
+        # Determine which constraint file to use
+        # Prefer enhanced constraint data with coverage if available
+        if hasattr(self, 'enhanced_constraints_file') and self.enhanced_constraints_file.exists():
+            base_constraints_file = self.enhanced_constraints_file
+            print(f"  Using enhanced constraint data with coverage: {base_constraints_file.name}")
+        else:
+            base_constraints_file = self.constraints_file
+            print(f"  Using basic constraint data: {base_constraints_file.name}")
         
         # Generate constraint file for specific capsule count
         analyzer = VRMMeshAnalyzer()
@@ -81,8 +269,24 @@ class VRMCapsulePipeline:
             return False, "Failed to reload VRM file"
         
         temp_constraints_file = self.output_dir / f"{self.vrm_path.stem}_temp_{capsule_count}caps.dzn"
-        if not analyzer.save_gecode_data(str(temp_constraints_file), capsule_count):
-            return False, f"Failed to generate constraint data for {capsule_count} capsules"
+        
+        # If using enhanced data, we need to modify it for the specific capsule count
+        if base_constraints_file == self.enhanced_constraints_file:
+            # Read the enhanced constraint data
+            with open(base_constraints_file, 'r') as f:
+                enhanced_data = f.read()
+            
+            # Extract the n_capsules line and replace it with the specific count
+            import re
+            enhanced_data = re.sub(r'n_capsules = \d+;', f'n_capsules = {capsule_count};', enhanced_data)
+            
+            # Save the modified data
+            with open(temp_constraints_file, 'w') as f:
+                f.write(enhanced_data)
+        else:
+            # Generate new constraint data for the specific capsule count
+            if not analyzer.save_gecode_data(str(temp_constraints_file), capsule_count):
+                return False, f"Failed to generate constraint data for {capsule_count} capsules"
         
         model_file = Path(__file__).parent / "tapered_capsule.mzn"
         if not model_file.exists():
@@ -281,6 +485,28 @@ class VRMCapsulePipeline:
         if not self.analyze_vrm_mesh(max_capsules):
             print("Pipeline failed at mesh analysis step")
             return False
+        
+        print("-" * 60)
+        
+        # Step 1b: Sample witness points for coverage
+        witness_points = self.sample_witness_points(5000)
+        if witness_points is None:
+            print("Warning: Failed to sample witness points, continuing with basic optimization")
+        else:
+            print("-" * 60)
+            
+            # Step 1c: Build coverage matrix
+            coverage_matrix = self.build_coverage_matrix(witness_points)
+            if coverage_matrix is None:
+                print("Warning: Failed to build coverage matrix, continuing with basic optimization")
+            else:
+                print("-" * 60)
+                
+                # Step 1d: Create enhanced constraint data with coverage
+                if self.create_enhanced_constraint_data(witness_points, coverage_matrix):
+                    print("✅ Enhanced constraint data with coverage matrix created successfully")
+                else:
+                    print("Warning: Failed to create enhanced constraint data, continuing with basic optimization")
         
         print("-" * 60)
         
