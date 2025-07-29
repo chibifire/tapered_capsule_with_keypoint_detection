@@ -6,7 +6,7 @@ Complete implementation available in `coacd_capsule_pipeline.py`
 
 ### MESH LOADING
 
-Load input mesh using trimesh library
+Load input mesh using GLTF parser
 
 Support VRM1 GLTF format with skinned meshes
 

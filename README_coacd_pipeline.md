@@ -1,127 +1,139 @@
 # CoACD-based Tapered Capsule Optimization Pipeline
 
-This pipeline generates optimized tapered capsules from VRM avatars using CoACD convex decomposition and MiniZinc constraint solving. It uses the existing GLTF parser instead of trimesh for better integration with the project.
+This pipeline implements an optimization algorithm for generating tapered capsules from 3D mesh data using CoACD (Connected Components Analysis for 3D) convex decomposition.
 
 ## Overview
 
-The pipeline implements a per-bone convex decomposition approach that respects the skeletal structure of the character:
+The pipeline takes a VRM/GLTF skinned mesh as input and generates an optimized set of tapered capsules that approximate the shape of the original mesh. The approach uses CoACD to decompose the mesh into convex hulls, then converts these hulls into tapered capsules for optimal coverage.
 
-1. **Skeleton-based mesh segmentation** - Vertices are grouped by their dominant bone influence
-2. **Per-bone convex decomposition** - CoACD is run separately on each bone's vertex set
-3. **Candidate capsule generation** - Tapered capsules are generated from convex hulls using PCA
-4. **Witness point sampling** - Points are sampled from the mesh interior for coverage verification
-5. **Set-covering optimization** - MiniZinc solves for the minimum capsule set that covers all points
-6. **GLTF export** - Optimized capsules are exported as a flat GLTF structure
+## Algorithm Pipeline
 
-## Installation
-
-```bash
-# Install required Python packages
-pip install trimesh coacd numpy scikit-learn
-
-# Install MiniZinc (https://www.minizinc.org/)
-# On macOS: brew install minizinc
-# On Ubuntu: sudo apt-get install minizinc
-# On Windows: Download from https://www.minizinc.org/
-```
-
-## Usage
-
-### Command Line Interface
-
-```bash
-# Run the complete pipeline
-python coacd_capsule_pipeline.py input_avatar.vrm
-
-# With custom parameters
-python coacd_capsule_pipeline.py input_avatar.vrm \
-  --threshold 0.05 \
-  --points 5000 \
-  --max-capsules 50 \
-  --output-dir ./output
-```
-
-### Python API
-
-```python
-from coacd_capsule_pipeline import CoACDCapsulePipeline
-
-# Create pipeline instance
-pipeline = CoACDCapsulePipeline("input_avatar.vrm", output_dir="./output")
-
-# Run complete pipeline
-success = pipeline.run_complete_pipeline(
-    coacd_threshold=0.05,
-    witness_points=5000,
-    max_capsules=50
-)
-
-if success:
-    print("Pipeline completed successfully!")
-```
-
-## Pipeline Steps
-
-1. **Mesh Loading** - Load VRM/GLTF mesh with existing GLTF parser
-2. **Skeleton Extraction** - Extract bone weights and joint hierarchy
-3. **Per-Bone Decomposition** - Run CoACD on each bone's vertex set
-4. **Capsule Generation** - Create tapered capsules from convex hulls
-5. **Witness Sampling** - Sample points for coverage verification
-6. **Coverage Matrix** - Build capsule-point coverage relationships
-7. **MiniZinc Data** - Generate constraint problem data file
-8. **Optimization** - Solve set-covering problem with MiniZinc
-9. **Result Processing** - Export selected capsules to GLTF
-
-## Output Files
-
-- `*_coacd_data.dzn` - MiniZinc data file for constraint solving
-- `*_coacd_results.txt` - Optimization results from MiniZinc
-- `*_coacd_capsules.gltf` - Optimized capsule geometry in GLTF format
+1. **Mesh Loading**: Load input mesh using GLTF parser, supporting VRM1 format with skinned meshes
+2. **Skeleton-based Segmentation**: Extract vertices associated with each bone based on skinning weights
+3. **Per-bone Convex Decomposition**: Run CoACD separately on each bone's vertex set to generate convex hulls
+4. **Candidate Capsule Generation**: Convert convex hulls to tapered capsules with dual radii parameters
+5. **Witness Point Sampling**: Sample thousands of points from mesh interior for coverage verification
+6. **Coverage Matrix Construction**: Check which capsules contain which witness points to build a boolean matrix
+7. **MiniZinc Data Formatting**: Write capsule parameters and coverage matrix to .dzn file format
+8. **Set-covering Optimization**: Use MiniZinc solver to find minimum capsule set that maximizes coverage
+9. **Result Processing**: Generate optimized capsule mesh geometry and export to GLTF format
 
 ## Key Features
 
 ### Tapered Capsules
-
-- Dual radii for anatomically accurate shapes
-- Smooth transitions between joint connections
+- Dual radii (r1, r2) for anatomically accurate shapes
+- Smooth transition between joint connections
 - Better volume representation than uniform cylinders
+- Height parameter for precise dimension control
+
+### Rotation Parameters
+- Swing rotation for bone direction alignment
+- Twist rotation for natural joint orientation
+- Full 3D orientation optimization
 
 ### Bone Skinning Preservation
+- Maintain vertex-bone weight associations
+- Transfer weights to optimized capsule geometry
+- Support skeletal animation in target engines
 
-- Maintains vertex-bone weight associations
-- Transfers weights to optimized capsule geometry
-- Supports skeletal animation in target engines
-
-### Hierarchy-Independent Structure
-
+### Hierarchy-independent Structure
 - Flat node organization for maximum compatibility
 - No parent-child relationships between capsules
 - Capsules positioned absolutely in world space
 
-### Constraint-Based Optimization
-
+### Constraint-based Optimization
 - MiniZinc solver ensures mathematical optimality
 - Set-covering formulation guarantees coverage
 - Scalable to different mesh complexities
 
+## Installation
+
+```bash
+# Install CoACD
+pip install coacd
+
+# Install MiniZinc (https://www.minizinc.org/)
+# Follow installation instructions for your platform
+
+# Install required Python packages
+pip install numpy scikit-learn
+```
+
+## Usage
+
+```bash
+# Run the complete pipeline
+python3 coacd_capsule_pipeline.py input.vrm
+
+# With custom parameters
+python3 coacd_capsule_pipeline.py input.vrm --threshold 0.05 --points 5000 --max-capsules 50
+
+# Specify output directory
+python3 coacd_capsule_pipeline.py input.vrm -o ./output/
+```
+
+## Input/Output Specifications
+
+### Inputs
+- VRM1/GLTF skinned mesh file
+- CoACD convex decomposition parameters
+- Witness point sampling density
+- MiniZinc solver configuration
+
+### Outputs
+- Optimized capsule parameter set:
+  - Position coordinates (x, y, z)
+  - Swing rotation angles
+  - Twist rotation angles
+  - Height values
+  - Radius_top and radius_bottom values
+- GLTF file with capsule geometry
+- Bone skinning weight transfer
+- Coverage statistics and validation
+
 ## Performance Characteristics
 
 ### Computational Complexity
-
 - Convex decomposition: O(n log n) vertex count
 - Coverage matrix: O(m×k) capsules×points
 - MiniZinc solving: NP-hard set covering
 - Mesh generation: O(p) capsule polygons
 
 ### Memory Requirements
-
 - Coverage matrix dominates memory usage
 - Scales with witness point count squared
 - Optimized for sparse matrix representation
 
 ### Parallelization
-
 - Convex decomposition parallelizable
 - Coverage checking parallelizable
 - MiniZinc solver supports parallel execution
 - Mesh generation parallelizable per capsule
+
+## Implementation Details
+
+The pipeline is implemented in `coacd_capsule_pipeline.py` and follows the algorithm described in `tapered_capsule_optimization_algorithm.md`. Key components include:
+
+1. **CoACDCapsulePipeline class**: Main pipeline orchestrator
+2. **Mesh loading and skeleton extraction**: Uses existing GLTF parser and mesh data extractor
+3. **CoACD integration**: Direct interface to CoACD library for convex decomposition
+4. **Capsule generation**: Converts convex hulls to tapered capsules using PCA for orientation
+5. **Coverage checking**: Custom implementation for point-in-tapered-capsule testing
+6. **MiniZinc interface**: Generates data files and processes solver output
+7. **GLTF export**: Reuses existing minizinc_to_gltf functionality
+
+## Testing
+
+Run the test suite to verify functionality:
+
+```bash
+python3 test_coacd_pipeline.py
+```
+
+## Dependencies
+
+- coacd: Connected Components Analysis for 3D
+- MiniZinc: Constraint modeling language
+- numpy: Numerical computing
+- scikit-learn: PCA implementation
+- Existing project modules (gltf_parser, mesh_data_extractor, minizinc_to_gltf, etc.)

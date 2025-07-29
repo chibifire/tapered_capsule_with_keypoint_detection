@@ -164,9 +164,9 @@ class CoACDCapsulePipeline:
             import coacd
             print("Step 2: Running global CoACD decomposition")
             
-            # Convert trimesh to format expected by coacd
+            # Convert mesh to format expected by coacd
             vertices = np.array(mesh.vertices)
-            faces = np.array(mesh.faces)
+            faces = np.array([])  # No faces for point cloud approach
             
             # Run CoACD decomposition
             parts = coacd.run_coacd(
@@ -185,11 +185,13 @@ class CoACDCapsulePipeline:
                 max_ch_vertex=256
             )
             
-            # Convert back to trimesh objects
+            # Convert to custom hull objects
             hulls = []
             for i, (part_vertices, part_faces) in enumerate(parts):
-                import trimesh
-                hull = trimesh.Trimesh(vertices=part_vertices, faces=part_faces)
+                hull = {
+                    'vertices': part_vertices,
+                    'faces': part_faces
+                }
                 hulls.append(hull)
             
             print(f"  Generated {len(hulls)} convex hulls")
@@ -251,13 +253,14 @@ class CoACDCapsulePipeline:
                         verbose=False
                     )
                     
-                    # Convert back to trimesh objects with bone association
+                    # Convert to custom hull objects with bone association
                     bone_hulls = []
                     for i, (part_vertices, part_faces) in enumerate(parts):
-                        import trimesh
-                        hull = trimesh.Trimesh(vertices=part_vertices, faces=part_faces)
-                        # Store bone name with hull for later reference
-                        hull.metadata = {'bone_name': bone_name}
+                        hull = {
+                            'vertices': part_vertices,
+                            'faces': part_faces,
+                            'metadata': {'bone_name': bone_name}
+                        }
                         bone_hulls.append(hull)
                     
                     print(f"    Generated {len(bone_hulls)} convex hulls for {bone_name}")
@@ -287,18 +290,18 @@ class CoACDCapsulePipeline:
             try:
                 # Apply PCA to find longest axis (capsule orientation)
                 pca = PCA(n_components=3)
-                pca.fit(hull.vertices)
+                pca.fit(hull['vertices'])
                 
                 # Principal axis is the first component
                 principal_axis = pca.components_[0]
                 
                 # Project vertices onto principal axis to find endpoints
-                projections = np.dot(hull.vertices, principal_axis)
+                projections = np.dot(hull['vertices'], principal_axis)
                 min_idx = np.argmin(projections)
                 max_idx = np.argmax(projections)
                 
-                p1 = hull.vertices[min_idx]  # Endpoint 1
-                p2 = hull.vertices[max_idx]  # Endpoint 2
+                p1 = hull['vertices'][min_idx]  # Endpoint 1
+                p2 = hull['vertices'][max_idx]  # Endpoint 2
                 
                 # Calculate height as distance between endpoints
                 height = np.linalg.norm(p2 - p1)
@@ -310,7 +313,7 @@ class CoACDCapsulePipeline:
                 
                 # Calculate distances from axis for all vertices
                 distances = []
-                for vertex in hull.vertices:
+                for vertex in hull['vertices']:
                     # Vector from p1 to vertex
                     to_vertex = vertex - p1
                     # Project onto direction vector
@@ -336,8 +339,8 @@ class CoACDCapsulePipeline:
                 
                 # Extract bone name if available
                 bone_name = f"Capsule_{i}"
-                if hasattr(hull, 'metadata') and 'bone_name' in hull.metadata:
-                    bone_name = hull.metadata['bone_name']
+                if 'metadata' in hull and 'bone_name' in hull['metadata']:
+                    bone_name = hull['metadata']['bone_name']
                 
                 capsule = {
                     'id': i,
@@ -396,25 +399,17 @@ class CoACDCapsulePipeline:
         # Initialize coverage matrix
         coverage_matrix = np.zeros((num_capsules, num_points), dtype=bool)
         
-        # Check which capsules contain which points
+        # Check which capsules contain which points using capsule-based checking
         for i, capsule in enumerate(capsules):
-            hull = capsule['hull']
-            try:
-                # Check if points are inside the convex hull
-                contains = hull.contains(witness_points)
-                coverage_matrix[i] = contains
-            except Exception as e:
-                print(f"  Error checking coverage for capsule {i}: {e}")
-                # Fallback: check distance to capsule
-                p1 = np.array(capsule['p1'])
-                p2 = np.array(capsule['p2'])
-                radius = max(capsule['radius_top'], capsule['radius_bottom'])
-                
-                for j, point in enumerate(witness_points):
-                    # Distance from point to line segment
-                    distance = self._point_to_line_segment_distance(point, p1, p2)
-                    if distance <= radius:
-                        coverage_matrix[i, j] = True
+            p1 = np.array(capsule['p1'])
+            p2 = np.array(capsule['p2'])
+            radius_top = capsule['radius_top']
+            radius_bottom = capsule['radius_bottom']
+            
+            for j, point in enumerate(witness_points):
+                # Check if point is inside the tapered capsule
+                if self._point_in_tapered_capsule(point, p1, p2, radius_top, radius_bottom):
+                    coverage_matrix[i, j] = True
         
         print(f"  Built {num_capsules}x{num_points} coverage matrix")
         print(f"  Total covered points: {np.sum(np.any(coverage_matrix, axis=0))}/{num_points}")
@@ -446,6 +441,42 @@ class CoACDCapsulePipeline:
         
         # Distance from point to closest point
         return np.linalg.norm(point - closest_point)
+    
+    def _point_in_tapered_capsule(self, point: np.ndarray, p1: np.ndarray, p2: np.ndarray, 
+                                 radius_top: float, radius_bottom: float) -> bool:
+        """Check if a point is inside a tapered capsule defined by two endpoints and radii."""
+        # Vector from p1 to p2
+        line_vec = p2 - p1
+        line_len = np.linalg.norm(line_vec)
+        
+        if line_len < 1e-8:
+            # Degenerate case - treat as sphere
+            return np.linalg.norm(point - p1) <= max(radius_top, radius_bottom)
+        
+        # Normalize line vector
+        line_unit = line_vec / line_len
+        
+        # Vector from p1 to point
+        point_vec = point - p1
+        
+        # Project point_vec onto line_vec
+        projection_length = np.dot(point_vec, line_unit)
+        
+        # Clamp projection to line segment
+        projection_length = np.clip(projection_length, 0, line_len)
+        
+        # Closest point on line segment
+        closest_point = p1 + projection_length * line_unit
+        
+        # Distance from point to closest point on line segment
+        distance_to_axis = np.linalg.norm(point - closest_point)
+        
+        # Interpolate radius at this point along the capsule
+        t = projection_length / line_len if line_len > 0 else 0
+        current_radius = radius_bottom + t * (radius_top - radius_bottom)
+        
+        # Point is inside if distance to axis is less than or equal to current radius
+        return distance_to_axis <= current_radius
     
     def create_minizinc_data_file(self, capsules: List[Dict[str, Any]], 
                                  witness_points: np.ndarray, 
