@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/V-Sekai/godot-vrm-test-bank.git
+	branch = main
+	commit = c47aae67c22804629dce4fd283b260ba2d337b3d
+	parent = 71c4be46fe1f93b83af7d3c49e6b9c21f36300f1
+	method = merge
+	cmdver = 0.4.9
