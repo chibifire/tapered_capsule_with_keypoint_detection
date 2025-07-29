@@ -21,6 +21,7 @@ class VRMCapsulePipeline:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.vrm_path = self.output_dir / f"{self.original_vrm_path.stem}_duplicate{self.original_vrm_path.suffix}"
         with open(self.original_vrm_path, 'rb') as src, open(self.vrm_path, 'wb') as dst:
+            dst.write(src.read())
         self.temp_files = []
         self.output_dir = Path(output_dir) if output_dir else self.vrm_path.parent
         self.temp_files = []
