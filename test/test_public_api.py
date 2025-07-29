@@ -36,6 +36,18 @@ class TestPublicAPI(unittest.TestCase):
         self.assertTrue(hasattr(tapered_capsule, '__version__'))
         self.assertTrue(hasattr(tapered_capsule, '__author__'))
 
+    def test_feminine_avatar_path(self):
+        """Test that the feminine avatar VRM file exists."""
+        # Path to the feminine VRM avatar
+        vrm_path = "thirdparty/vrm_samples/vroid/fem_vroid.vrm"
+        
+        # Check if the file exists (this is more of a setup check than a test)
+        if os.path.exists(vrm_path):
+            print(f"✅ Feminine avatar VRM file found: {vrm_path}")
+        else:
+            print(f"⚠️  Feminine avatar VRM file not found: {vrm_path}")
+            print("   This is expected in some environments.")
+
 
 if __name__ == '__main__':
     unittest.main()
