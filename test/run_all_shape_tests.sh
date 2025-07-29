@@ -17,7 +17,10 @@ python3 test_coacd_compatible_shapes.py
 echo -e "\n3. Testing shapes with CoACD..."
 python3 test_shapes_coacd.py
 
-echo -e "\n4. Running complete workflow test..."
+echo -e "\n4. Testing GLB files..."
+python3 test_glb_files.py
+
+echo -e "\n5. Running complete workflow test..."
 python3 test_complete_workflow.py
 
 echo -e "\nAll tests completed!"

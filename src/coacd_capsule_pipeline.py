@@ -172,11 +172,15 @@ class CoACDCapsulePipeline:
                 print("  Skipping global CoACD: insufficient vertices")
                 return []
             
-            faces = np.array([])  # No faces for point cloud approach
+            # Use the faces from the mesh if available, otherwise create empty faces
+            if hasattr(mesh, 'faces') and len(mesh.faces) > 0:
+                faces = np.array(mesh.faces)
+            else:
+                # No faces for point cloud approach - create empty array with correct shape
+                faces = np.array([]).reshape(0, 3)
             
-            # Create CoACD mesh directly from vertices and empty faces (point cloud)
-            # CoACD requires faces to be a 2D array with shape (n, 3)
-            coacd_mesh = coacd.Mesh(vertices, faces.reshape(0, 3))
+            # Create CoACD mesh directly from vertices and faces
+            coacd_mesh = coacd.Mesh(vertices, faces)
             
             try:
                 parts = coacd.run_coacd(
