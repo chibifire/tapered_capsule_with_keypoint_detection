@@ -350,21 +350,20 @@ class CapsuleGenerator:
             print("No data to save")
             return False
     
-    def save_gecode_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
-        """Save integer-scaled data for Gecode solver.
+    def save_gecode_data(self, output_path: str, max_capsules: int = 25):
+        """Save float data for Gecode solver.
         
         Args:
             output_path: Output file path
             max_capsules: Maximum number of capsules
-            scale: Integer scaling factor (default 1000 for 1mm precision)
         """
-        constraints = self.generate_capsule_constraints(max_capsules=max_capsules, integer_scale=scale)
+        constraints = self.generate_capsule_constraints(max_capsules=max_capsules)
         
         if constraints:
             with open(output_path, 'w') as f:
                 f.write(constraints)
             print(f"Saved analysis data to: {output_path}")
-            print(f"Integer scaling: {scale}x (1 unit = {1.0/scale:.3f} meters)")
+            print(f"Using float values (no scaling)")
             return True
         else:
             print("No data to save")

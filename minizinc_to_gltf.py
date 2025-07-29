@@ -668,9 +668,9 @@ class GLTFCapsuleGenerator:
         else:
             # Auto-detect scaling from output
             is_scaled = "Integer scaling: 1000x" in output_text
-            scale_factor = 1000.0 if is_scaled else 1.0
+            scale_factor = 1.0  # Always use 1.0 for float values
             if is_scaled:
-                print(f"Auto-detected scale factor: {scale_factor}")
+                print(f"Ignoring auto-detected scale factor, using 1.0 for float values")
         
         lines = output_text.strip().split('\n')
         for line in lines:

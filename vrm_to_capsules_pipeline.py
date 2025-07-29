@@ -54,9 +54,9 @@ class VRMCapsulePipeline:
         # Print analysis summary
         analyzer.print_analysis_summary()
         
-        # Generate constraint data for Gecode (integer-scaled)
+        # Generate constraint data for Gecode (float values)
         self.constraints_file = self.output_dir / f"{self.vrm_path.stem}_constraints.dzn"
-        if not analyzer.save_gecode_data(str(self.constraints_file), max_capsules, scale=1000):
+        if not analyzer.save_gecode_data(str(self.constraints_file), max_capsules):
             print("Failed to generate constraint data")
             return False
         
@@ -81,7 +81,7 @@ class VRMCapsulePipeline:
             return False, "Failed to reload VRM file"
         
         temp_constraints_file = self.output_dir / f"{self.vrm_path.stem}_temp_{capsule_count}caps.dzn"
-        if not analyzer.save_gecode_data(str(temp_constraints_file), capsule_count, scale=1000):
+        if not analyzer.save_gecode_data(str(temp_constraints_file), capsule_count):
             return False, f"Failed to generate constraint data for {capsule_count} capsules"
         
         model_file = Path(__file__).parent / "tapered_capsule.mzn"

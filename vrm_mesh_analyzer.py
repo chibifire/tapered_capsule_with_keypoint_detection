@@ -76,19 +76,19 @@ class VRMMeshAnalyzer:
             print("No data to save")
             return False
 
-    def save_gecode_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
-        """Save integer-scaled data for Gecode solver."""
+    def save_gecode_data(self, output_path: str, max_capsules: int = 25):
+        """Save float data for Gecode solver."""
         if not self.capsule_generator or not self.bone_analysis_data:
             print("No data to save")
             return False
             
-        constraints = self.capsule_generator.generate_capsule_constraints(self.bone_analysis_data, max_capsules=max_capsules, integer_scale=scale)
+        constraints = self.capsule_generator.generate_capsule_constraints(self.bone_analysis_data, max_capsules=max_capsules)
         
         if constraints:
             with open(output_path, 'w') as f:
                 f.write(constraints)
             print(f"Saved analysis data to: {output_path}")
-            print(f"Integer scaling: {scale}x (1 unit = {1.0/scale:.3f} meters)")
+            print(f"Using float values (no scaling)")
             return True
         else:
             print("No data to save")
@@ -152,22 +152,20 @@ def main():
     import sys
     
     if len(sys.argv) < 2:
-        print("VRM Capsule Optimizer - Gecode Integer Solver")
+        print("VRM Capsule Optimizer - Gecode Float Solver")
         print("Usage: python vrm_mesh_analyzer.py <vrm_file.gltf> [options]")
         print("  vrm_file.gltf: Input VRM1 GLTF file")
         print("  --output <file>: Output base name (default: vrm_analysis)")
         print("  --capsules <n>: Maximum number of capsules (default: 25)")
-        print("  --scale <n>: Integer scaling factor (default: 1000 for 1mm precision)")
         print("  --export-json: Export results to JSON format")
         print("  --export-csv: Export results to CSV format")
-        print("  --results <file>: CP-SAT results file to process")
+        print("  --results <file>: Gecode results file to process")
         sys.exit(1)
     
     # Parse command line arguments
     vrm_file = sys.argv[1]
     output_base = "vrm_analysis"
     max_capsules = 25
-    scale = 1000
     export_json = False
     export_csv = False
     results_file = None
@@ -179,9 +177,6 @@ def main():
             i += 2
         elif sys.argv[i] == "--capsules" and i + 1 < len(sys.argv):
             max_capsules = int(sys.argv[i + 1])
-            i += 2
-        elif sys.argv[i] == "--scale" and i + 1 < len(sys.argv):
-            scale = int(sys.argv[i + 1])
             i += 2
         elif sys.argv[i] == "--export-json":
             export_json = True
@@ -198,7 +193,7 @@ def main():
     try:
         analyzer = VRMMeshAnalyzer()
         
-        print(f"=== VRM Capsule Optimizer - Gecode Solver ===")
+        print(f"=== VRM Capsule Optimizer - Gecode Float Solver ===")
         print(f"Loading VRM file: {vrm_file}")
         if not analyzer.load_vrm_file(vrm_file):
             print("Failed to load VRM file")
@@ -206,11 +201,11 @@ def main():
         
         analyzer.print_analysis_summary()
         
-        # Generate Gecode integer data (primary output)
+        # Generate Gecode float data (primary output)
         gecode_file = f"{output_base}_gecode.dzn"
-        if analyzer.save_gecode_data(gecode_file, max_capsules, scale):
-            print(f"\n✅ Generated Gecode integer data: {gecode_file}")
-            print(f"   Scaling: {scale}x (1 unit = {1000/scale:.1f}mm)")
+        if analyzer.save_gecode_data(gecode_file, max_capsules):
+            print(f"\n✅ Generated Gecode float data: {gecode_file}")
+            print(f"   Using float values (no scaling)")
         
         # Generate float data for comparison (optional)
         float_file = f"{output_base}_float.dzn"
@@ -228,12 +223,12 @@ def main():
             print(f"\n=== Processing Gecode Results ===")
             if export_json:
                 json_file = f"{output_base}_results.json"
-                if analyzer.export_cpsat_results_to_json(results_file, json_file, scale):
+                if analyzer.export_cpsat_results_to_json(results_file, json_file):
                     print(f"✅ Exported to JSON: {json_file}")
             
             if export_csv:
                 csv_file = f"{output_base}_results.csv"
-                if analyzer.export_cpsat_results_to_csv(results_file, csv_file, scale):
+                if analyzer.export_cpsat_results_to_csv(results_file, csv_file):
                     print(f"✅ Exported to CSV: {csv_file}")
         
         print(f"\n=== Optimization Complete ===")
