@@ -182,7 +182,8 @@ class CoACDCapsulePipeline:
                 pca=False,
                 merge=False,
                 decimate=False,
-                max_ch_vertex=256
+                max_ch_vertex=256,
+                quiet=True
             )
             
             # Convert to custom hull objects
@@ -240,17 +241,17 @@ class CoACDCapsulePipeline:
                         threshold=threshold,
                         max_convex_hull=16,  # Fewer hulls per bone
                         preprocess_mode="auto",
-                        prep_resolution=30,
-                        sample_resolution=50,
+                        preprocess_resolution=30,
+                        resolution=50,
                         mcts_nodes=10,
-                        mcts_iteration=100,
+                        mcts_iterations=100,
                         mcts_max_depth=20,
                         pca=False,
                         merge=False,
                         decimate=False,
                         max_ch_vertex=128,
                         vlimit=16,
-                        verbose=False
+                        quiet=True
                     )
                     
                     # Convert to custom hull objects with bone association
