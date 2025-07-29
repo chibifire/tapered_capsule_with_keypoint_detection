@@ -170,7 +170,7 @@ class GLTFCapsuleGenerator:
         # Connect bottom center to first ring of bottom hemisphere
         for i in range(segments):
             next_i = (i + 1) % segments
-            indices.extend([bottom_center_idx, bottom_hemisphere_start + next_i, bottom_hemisphere_start + i])
+            indices.extend([bottom_center_idx, bottom_hemisphere_start + i, bottom_hemisphere_start + next_i])
         
         # Connect bottom hemisphere to cylinder bottom
         cylinder_bottom_ring = 0  # First ring of cylinder
@@ -209,10 +209,10 @@ class GLTFCapsuleGenerator:
         for i in range(segments):
             next_i = (i + 1) % segments
             indices.extend([
-                cylinder_top_ring + i, top_hemisphere_first_ring + next_i, top_hemisphere_first_ring + i
+                cylinder_top_ring + i, top_hemisphere_first_ring + i, top_hemisphere_first_ring + next_i
             ])
             indices.extend([
-                cylinder_top_ring + i, cylinder_top_ring + next_i, top_hemisphere_first_ring + next_i
+                cylinder_top_ring + i, top_hemisphere_first_ring + next_i, cylinder_top_ring + next_i
             ])
         
         # Top hemisphere internal rings
