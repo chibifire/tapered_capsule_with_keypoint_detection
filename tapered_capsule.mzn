@@ -1,6 +1,6 @@
-% VRM Tapered Capsule Optimization Problem - Fixed CP-SAT Version
+% VRM Tapered Capsule Optimization Problem - Gecode Version
 % Addresses hierarchy bugs, scaling issues, and constraint complexity
-% Designed for reliable solving with CP-SAT
+% Designed for reliable solving with Gecode
 
 include "globals.mzn";
 
@@ -144,7 +144,7 @@ constraint forall(i in 1..n_capsules)(
 
 % Output results in readable format
 output [
-    "=== VRM Triangle Mesh Capsule Optimization Results (Fixed CP-SAT) ===\n" ++
+    "=== VRM Triangle Mesh Capsule Optimization Results (Gecode) ===\n" ++
     "Triangle mesh data: " ++ show(n_capsules) ++ " bones from VRM analysis\n" ++
     "Fixed: Hierarchy validation, reduced complexity, overflow prevention\n" ++
     "Integer scaling: 1000x (1 unit = 1mm)\n" ++
@@ -180,4 +180,4 @@ output [
     endif
     | i in 1..n_capsules
 ] ++
-["\n=== Fixed CP-SAT Integer Optimization Complete ===\n"];
+["\n=== Gecode Integer Optimization Complete ===\n"];

@@ -350,8 +350,8 @@ class CapsuleGenerator:
             print("No data to save")
             return False
     
-    def save_cpsat_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
-        """Save integer-scaled data specifically for OR-Tools CP-SAT solver.
+    def save_gecode_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
+        """Save integer-scaled data for Gecode solver.
         
         Args:
             output_path: Output file path
@@ -532,19 +532,19 @@ class CapsuleGenerator:
             print(f"Error exporting CP-SAT results to CSV: {e}")
             return False
     
-    def print_analysis_summary(self):
+    def print_analysis_summary(self, vertices, triangles, normals, mesh_bounds):
         """Print summary of the mesh analysis."""
         print(f"\nVRM Mesh Analysis Summary:")
-        print(f"Total vertices: {len(self.vertices)}")
-        print(f"Total triangles: {len(self.triangles)}")
-        print(f"Total normals: {len(self.normals)}")
+        print(f"Total vertices: {len(vertices)}")
+        print(f"Total triangles: {len(triangles)}")
+        print(f"Total normals: {len(normals)}")
         print(f"Total joints: {len(self.joint_names)}")
-        print(f"Meshes analyzed: {len(self.mesh_bounds)}")
+        print(f"Meshes analyzed: {len(mesh_bounds)}")
         
         # Show triangle mesh data per mesh
         total_surface_area = 0.0
         print(f"\nTriangle Mesh Data:")
-        for mesh_name, bounds in self.mesh_bounds.items():
+        for mesh_name, bounds in mesh_bounds.items():
             surface_area = bounds.get('surface_area', 0.0)
             total_surface_area += surface_area
             print(f"  {mesh_name}: {bounds['vertex_count']} vertices, "
@@ -553,7 +553,7 @@ class CapsuleGenerator:
         
         print(f"Total surface area: {total_surface_area:.6f}")
         
-        bone_geometry = self.analyze_bone_geometry()
+        bone_geometry = self.analyze_bone_geometry(vertices, [], [])  # Simplified call
         print(f"\nBone geometry analysis (with triangle mesh support):")
         
         # Sort by vertex count
@@ -571,102 +571,3 @@ class CapsuleGenerator:
                 print(f"  {bone_name}: {vertex_count} vertices, "
                       f"center=({center[0]:.3f},{center[1]:.3f},{center[2]:.3f}), "
                       f"size=({size[0]:.3f},{size[1]:.3f},{size[2]:.3f})")
-
-def main():
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("VRM Capsule Optimizer - OR-Tools CP-SAT Integer Solver")
-        print("Usage: python vrm_mesh_analyzer.py <vrm_file.gltf> [options]")
-        print("  vrm_file.gltf: Input VRM1 GLTF file")
-        print("  --output <file>: Output base name (default: vrm_analysis)")
-        print("  --capsules <n>: Maximum number of capsules (default: 25)")
-        print("  --scale <n>: Integer scaling factor (default: 1000 for 1mm precision)")
-        print("  --export-json: Export results to JSON format")
-        print("  --export-csv: Export results to CSV format")
-        print("  --results <file>: CP-SAT results file to process")
-        sys.exit(1)
-    
-    # Parse command line arguments
-    vrm_file = sys.argv[1]
-    output_base = "vrm_analysis"
-    max_capsules = 25
-    scale = 1000
-    export_json = False
-    export_csv = False
-    results_file = None
-    
-    i = 2
-    while i < len(sys.argv):
-        if sys.argv[i] == "--output" and i + 1 < len(sys.argv):
-            output_base = sys.argv[i + 1]
-            i += 2
-        elif sys.argv[i] == "--capsules" and i + 1 < len(sys.argv):
-            max_capsules = int(sys.argv[i + 1])
-            i += 2
-        elif sys.argv[i] == "--scale" and i + 1 < len(sys.argv):
-            scale = int(sys.argv[i + 1])
-            i += 2
-        elif sys.argv[i] == "--export-json":
-            export_json = True
-            i += 1
-        elif sys.argv[i] == "--export-csv":
-            export_csv = True
-            i += 1
-        elif sys.argv[i] == "--results" and i + 1 < len(sys.argv):
-            results_file = sys.argv[i + 1]
-            i += 2
-        else:
-            i += 1
-    
-    try:
-        analyzer = VRMMeshAnalyzer()
-        
-        print(f"=== VRM Capsule Optimizer - CP-SAT Integer Solver ===")
-        print(f"Loading VRM file: {vrm_file}")
-        if not analyzer.load_vrm_file(vrm_file):
-            print("Failed to load VRM file")
-            sys.exit(1)
-        
-        analyzer.print_analysis_summary()
-        
-        # Generate CP-SAT integer data (primary output)
-        cpsat_file = f"{output_base}_cpsat.dzn"
-        if analyzer.save_cpsat_data(cpsat_file, max_capsules, scale):
-            print(f"\n✅ Generated CP-SAT integer data: {cpsat_file}")
-            print(f"   Scaling: {scale}x (1 unit = {1000/scale:.1f}mm)")
-        
-        # Generate float data for comparison (optional)
-        float_file = f"{output_base}_float.dzn"
-        if analyzer.save_analysis_data(float_file):
-            print(f"✅ Generated float data (for comparison): {float_file}")
-        
-        print(f"\n=== CP-SAT Optimization Workflow ===")
-        print(f"1. Run CP-SAT solver:")
-        print(f"   minizinc --solver cp-sat --parallel 16 tapered_capsule_cpsat.mzn {cpsat_file} -o results_cpsat.txt")
-        print(f"2. Export results (optional):")
-        print(f"   python vrm_mesh_analyzer.py {vrm_file} --results results_cpsat.txt --export-json --export-csv")
-        
-        # Process results if provided
-        if results_file:
-            print(f"\n=== Processing CP-SAT Results ===")
-            if export_json:
-                json_file = f"{output_base}_results.json"
-                if analyzer.export_cpsat_results_to_json(results_file, json_file, scale):
-                    print(f"✅ Exported to JSON: {json_file}")
-            
-            if export_csv:
-                csv_file = f"{output_base}_results.csv"
-                if analyzer.export_cpsat_results_to_csv(results_file, csv_file, scale):
-                    print(f"✅ Exported to CSV: {csv_file}")
-        
-        print(f"\n=== Optimization Complete ===")
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()

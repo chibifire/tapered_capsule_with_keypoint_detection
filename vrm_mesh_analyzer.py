@@ -76,8 +76,8 @@ class VRMMeshAnalyzer:
             print("No data to save")
             return False
 
-    def save_cpsat_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
-        """Save integer-scaled data specifically for OR-Tools CP-SAT solver."""
+    def save_gecode_data(self, output_path: str, max_capsules: int = 25, scale: int = 1000):
+        """Save integer-scaled data for Gecode solver."""
         if not self.capsule_generator or not self.bone_analysis_data:
             print("No data to save")
             return False
@@ -152,7 +152,7 @@ def main():
     import sys
     
     if len(sys.argv) < 2:
-        print("VRM Capsule Optimizer - OR-Tools CP-SAT Integer Solver")
+        print("VRM Capsule Optimizer - Gecode Integer Solver")
         print("Usage: python vrm_mesh_analyzer.py <vrm_file.gltf> [options]")
         print("  vrm_file.gltf: Input VRM1 GLTF file")
         print("  --output <file>: Output base name (default: vrm_analysis)")
@@ -198,7 +198,7 @@ def main():
     try:
         analyzer = VRMMeshAnalyzer()
         
-        print(f"=== VRM Capsule Optimizer - CP-SAT Integer Solver ===")
+        print(f"=== VRM Capsule Optimizer - Gecode Solver ===")
         print(f"Loading VRM file: {vrm_file}")
         if not analyzer.load_vrm_file(vrm_file):
             print("Failed to load VRM file")
@@ -206,10 +206,10 @@ def main():
         
         analyzer.print_analysis_summary()
         
-        # Generate CP-SAT integer data (primary output)
-        cpsat_file = f"{output_base}_cpsat.dzn"
-        if analyzer.save_cpsat_data(cpsat_file, max_capsules, scale):
-            print(f"\n✅ Generated CP-SAT integer data: {cpsat_file}")
+        # Generate Gecode integer data (primary output)
+        gecode_file = f"{output_base}_gecode.dzn"
+        if analyzer.save_gecode_data(gecode_file, max_capsules, scale):
+            print(f"\n✅ Generated Gecode integer data: {gecode_file}")
             print(f"   Scaling: {scale}x (1 unit = {1000/scale:.1f}mm)")
         
         # Generate float data for comparison (optional)
@@ -217,15 +217,15 @@ def main():
         if analyzer.save_analysis_data(float_file):
             print(f"✅ Generated float data (for comparison): {float_file}")
         
-        print(f"\n=== CP-SAT Optimization Workflow ===")
-        print(f"1. Run CP-SAT solver:")
-        print(f"   minizinc --solver cp-sat --parallel 16 tapered_capsule_cpsat.mzn {cpsat_file} -o results_cpsat.txt")
+        print(f"\n=== Gecode Optimization Workflow ===")
+        print(f"1. Run Gecode solver:")
+        print(f"   minizinc --solver gecode --parallel 16 tapered_capsule.mzn {gecode_file} -o results_gecode.txt")
         print(f"2. Export results (optional):")
-        print(f"   python vrm_mesh_analyzer.py {vrm_file} --results results_cpsat.txt --export-json --export-csv")
+        print(f"   python vrm_mesh_analyzer.py {vrm_file} --results results_gecode.txt --export-json --export-csv")
         
         # Process results if provided
         if results_file:
-            print(f"\n=== Processing CP-SAT Results ===")
+            print(f"\n=== Processing Gecode Results ===")
             if export_json:
                 json_file = f"{output_base}_results.json"
                 if analyzer.export_cpsat_results_to_json(results_file, json_file, scale):

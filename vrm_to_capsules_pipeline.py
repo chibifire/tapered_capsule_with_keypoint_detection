@@ -54,9 +54,9 @@ class VRMCapsulePipeline:
         # Print analysis summary
         analyzer.print_analysis_summary()
         
-        # Generate constraint data for CP-SAT (integer-scaled)
+        # Generate constraint data for Gecode (integer-scaled)
         self.constraints_file = self.output_dir / f"{self.vrm_path.stem}_constraints.dzn"
-        if not analyzer.save_cpsat_data(str(self.constraints_file), max_capsules, scale=1000):
+        if not analyzer.save_gecode_data(str(self.constraints_file), max_capsules, scale=1000):
             print("Failed to generate constraint data")
             return False
         
@@ -72,7 +72,7 @@ class VRMCapsulePipeline:
         print(f"Generated float data: {self.float_constraints_file}")
         return True
     
-    def run_single_optimization(self, capsule_count: int, timeout: int = 300, solver: str = "cp-sat") -> tuple[bool, str]:
+    def run_single_optimization(self, capsule_count: int, timeout: int = 300, solver: str = "gecode") -> tuple[bool, str]:
         """Run a single optimization attempt with specified parameters."""
         
         # Generate constraint file for specific capsule count
@@ -81,7 +81,7 @@ class VRMCapsulePipeline:
             return False, "Failed to reload VRM file"
         
         temp_constraints_file = self.output_dir / f"{self.vrm_path.stem}_temp_{capsule_count}caps.dzn"
-        if not analyzer.save_cpsat_data(str(temp_constraints_file), capsule_count, scale=1000):
+        if not analyzer.save_gecode_data(str(temp_constraints_file), capsule_count, scale=1000):
             return False, f"Failed to generate constraint data for {capsule_count} capsules"
         
         model_file = Path(__file__).parent / "tapered_capsule.mzn"
@@ -150,7 +150,7 @@ class VRMCapsulePipeline:
         print(f"Step 2: Running progressive optimization (up to {max_capsules} capsules)")
         
         # Define optimization strategy
-        solvers = ["cp-sat", "gecode", "chuffed"]  # Try different solvers
+        solvers = ["gecode"]  # Always use Gecode solver only
         
         # Progressive capsule counts - start small and increase
         if max_capsules <= 5:
@@ -204,7 +204,7 @@ class VRMCapsulePipeline:
                     # Try with even fewer capsules if we haven't found any solution yet
                     if capsule_count > 1:
                         print(f"  🔄 Trying with just 1 capsule as fallback...")
-                        success, message = self.run_single_optimization(1, 15, "cp-sat")
+                        success, message = self.run_single_optimization(1, 15, "gecode")
                         if success:
                             best_result = message
                             best_capsule_count = 1
