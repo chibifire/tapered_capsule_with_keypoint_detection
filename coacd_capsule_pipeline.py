@@ -166,25 +166,39 @@ class CoACDCapsulePipeline:
             
             # Convert mesh to format expected by coacd
             vertices = np.array(mesh.vertices)
+            
+            # Check if we have enough vertices for meaningful decomposition
+            if len(vertices) < 4:
+                print("  Skipping global CoACD: insufficient vertices")
+                return []
+            
             faces = np.array([])  # No faces for point cloud approach
             
-            # Run CoACD decomposition
-            parts = coacd.run_coacd(
-                mesh=(vertices, faces),
-                threshold=threshold,
-                max_convex_hull=64,
-                preprocess_mode="auto",
-                preprocess_resolution=50,
-                resolution=100,
-                mcts_nodes=20,
-                mcts_iterations=150,
-                mcts_max_depth=30,
-                pca=False,
-                merge=False,
-                decimate=False,
-                max_ch_vertex=256,
-                quiet=True
-            )
+            # Create CoACD mesh directly from vertices and empty faces (point cloud)
+            # CoACD requires faces to be a 2D array with shape (n, 3)
+            coacd_mesh = coacd.Mesh(vertices, faces.reshape(0, 3))
+            
+            try:
+                parts = coacd.run_coacd(
+                    mesh=coacd_mesh,
+                    threshold=threshold,
+                    max_convex_hull=64,
+                    preprocess_mode="auto",
+                    preprocess_resolution=50,
+                    resolution=100,
+                    mcts_nodes=20,
+                    mcts_iterations=150,
+                    mcts_max_depth=30,
+                    pca=0,  # Changed from False to 0 (int)
+                    merge=False,
+                    decimate=False,
+                    max_ch_vertex=256,
+                    extrude=False,
+                )
+            except Exception as coacd_error:
+                print(f"  CoACD failed for global mesh, creating simple convex hull: {coacd_error}")
+                # Create a single convex hull from all vertices as fallback
+                parts = [(vertices, np.array([]).reshape(0, 3))]
             
             # Convert to custom hull objects
             hulls = []
@@ -236,22 +250,37 @@ class CoACDCapsulePipeline:
                 
                 # Run CoACD decomposition on bone vertices
                 try:
-                    parts = coacd.run_coacd(
-                        mesh=(bone_vertices, np.array([])),  # No faces for point cloud
-                        threshold=threshold,
-                        max_convex_hull=16,  # Fewer hulls per bone
-                        preprocess_mode="auto",
-                        preprocess_resolution=30,
-                        resolution=50,
-                        mcts_nodes=10,
-                        mcts_iterations=100,
-                        mcts_max_depth=20,
-                        pca=False,
-                        merge=False,
-                        decimate=False,
-                        max_ch_vertex=128,
-                        quiet=True
-                    )
+                    # Check if we have enough vertices for meaningful decomposition
+                    if len(bone_vertices) < 4:
+                        print(f"    Skipping {bone_name}: insufficient vertices ({len(bone_vertices)} < 4)")
+                        continue
+                    
+                    # Try to create a simple convex hull as a fallback when CoACD fails
+                    try:
+                        # Create CoACD mesh directly from vertices and empty faces (point cloud)
+                        # CoACD requires faces to be a 2D array with shape (n, 3)
+                        coacd_mesh = coacd.Mesh(bone_vertices, np.array([]).reshape(0, 3))
+                        
+                        parts = coacd.run_coacd(
+                            mesh=coacd_mesh,
+                            threshold=threshold,
+                            max_convex_hull=16,  # Fewer hulls per bone
+                            preprocess_mode="auto",
+                            preprocess_resolution=30,
+                            resolution=50,
+                            mcts_nodes=10,
+                            mcts_iterations=100,
+                            mcts_max_depth=20,
+                            pca=0,  # Changed from False to 0 (int)
+                            merge=False,
+                            decimate=False,
+                            max_ch_vertex=128,
+                            extrude=False,
+                        )
+                    except Exception as coacd_error:
+                        print(f"    CoACD failed for {bone_name}, creating simple convex hull: {coacd_error}")
+                        # Create a single convex hull from all vertices as fallback
+                        parts = [(bone_vertices, np.array([]).reshape(0, 3))]
                     
                     # Convert to custom hull objects with bone association
                     bone_hulls = []
