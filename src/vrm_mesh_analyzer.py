@@ -5,10 +5,10 @@ Analyzes skinned meshes in VRM1 files to generate optimal tapered capsule repres
 """
 
 from typing import Dict, Any, Optional
-from gltf_parser import GLTFParser
-from skeleton_analyzer import SkeletonAnalyzer
-from mesh_data_extractor import MeshDataExtractor
-from capsule_generator import CapsuleGenerator
+from .gltf_parser import GLTFParser
+from .skeleton_analyzer import SkeletonAnalyzer
+from .mesh_data_extractor import MeshDataExtractor
+from .capsule_generator import CapsuleGenerator
 
 class VRMMeshAnalyzer:
     """Analyzes VRM mesh geometry and extracts bone-related data."""

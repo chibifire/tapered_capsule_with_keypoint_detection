@@ -9,7 +9,7 @@ import sys
 import subprocess
 import tempfile
 from pathlib import Path
-from vrm_mesh_analyzer import VRMMeshAnalyzer
+from .vrm_mesh_analyzer import VRMMeshAnalyzer
 
 class VRMCapsulePipeline:
     def __init__(self, vrm_path: str, output_dir: str = None):
@@ -231,7 +231,7 @@ class VRMCapsulePipeline:
             return False
         
         # Import here to avoid circular imports
-        from minizinc_to_gltf import GLTFCapsuleGenerator
+        from .minizinc_to_gltf import GLTFCapsuleGenerator
         
         # Output GLTF file
         self.gltf_file = self.output_dir / f"{self.vrm_path.stem}_capsules.gltf"

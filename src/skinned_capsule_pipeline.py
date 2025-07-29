@@ -12,9 +12,9 @@ from typing import Dict, Any, List, Tuple, Optional
 import argparse
 
 # Import our modules
-from vrm_mesh_analyzer import VRMMeshAnalyzer
-from minizinc_to_gltf import GLTFCapsuleGenerator
-from capsule_skinning import CapsuleSkinningSystem
+from .vrm_mesh_analyzer import VRMMeshAnalyzer
+from .minizinc_to_gltf import GLTFCapsuleGenerator
+from .capsule_skinning import CapsuleSkinningSystem
 
 class SkinnedCapsulePipeline:
     """

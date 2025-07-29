@@ -1,6 +1,39 @@
-# CoACD-based Tapered Capsule Optimization Pipeline
+# Tapered Capsule Generation Pipeline
 
-This pipeline implements an optimization algorithm for generating anatomically accurate tapered capsules from skinned mesh data using CoACD (Connected Components Decimation) for convex decomposition.
+This pipeline implements an optimization algorithm for generating anatomically accurate tapered capsules from skinned mesh data. It includes multiple approaches for capsule generation, including CoACD (Connected Components Decimation) for convex decomposition and constraint-based optimization using MiniZinc.
+
+## Public API
+
+The pipeline now provides a clean public API through the `tapered_capsule` module:
+
+```python
+import tapered_capsule
+
+# Analyze a VRM file
+analyzer = tapered_capsule.VRMMeshAnalyzer()
+analyzer.load_vrm_file('model.vrm')
+
+# Run complete pipeline
+tapered_capsule.generate_capsules_from_vrm('model.vrm', max_capsules=8)
+
+# Generate skinned capsules from results
+tapered_capsule.generate_skinned_capsules_from_vrm(
+    'model.vrm', 'results.txt', 'output.gltf')
+```
+
+### Public API Components
+
+- `VRMMeshAnalyzer`: Analyze VRM meshes and extract bone geometry
+- `VRMCapsulePipeline`: Complete pipeline from VRM to optimized capsules
+- `SkinnedCapsulePipeline`: Pipeline with skinning weight transfer
+- `CapsuleGenerator`: Generate capsule constraints for optimization
+- `GLTFCapsuleGenerator`: Convert optimization results to glTF format
+
+### Public API Functions
+
+- `analyze_vrm_mesh()`: Analyze a VRM mesh and extract bone geometry data
+- `generate_capsules_from_vrm()`: Run the complete VRM to capsules pipeline
+- `generate_skinned_capsules_from_vrm()`: Generate skinned capsules from VRM file and optimization results
 
 ## Overview
 
@@ -160,7 +193,3 @@ The pipeline can be customized by adjusting:
 - Enable verbose output with additional print statements
 - Check intermediate files (.dzn, .txt) for optimization data
 - Validate input mesh with mesh analysis tools
-
-## License
-
-This implementation is provided for educational and research purposes. See LICENSE file for details.

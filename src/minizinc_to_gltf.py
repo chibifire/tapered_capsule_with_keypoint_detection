@@ -12,7 +12,7 @@ import base64
 import struct
 import numpy as np
 from typing import List, Dict, Tuple, Any
-from capsule_skinning import CapsuleSkinningSystem
+from .capsule_skinning import CapsuleSkinningSystem
 
 class GLTFCapsuleGenerator:
     def __init__(self):
