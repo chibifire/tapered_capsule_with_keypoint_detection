@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+UNKNOWN.egg-info/PKG-INFO
+UNKNOWN.egg-info/SOURCES.txt
+UNKNOWN.egg-info/dependency_links.txt
+UNKNOWN.egg-info/top_level.txt
+test/test_capsule_visualization.py
+test/test_coacd_compatible_shapes.py
+test/test_coacd_pipeline.py
+test/test_complete_workflow.py
+test/test_female_avatar.py
+test/test_platonic_solids.py
+test/test_public_api.py
+test/test_shapes.py
+test/test_shapes_coacd.py
