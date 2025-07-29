@@ -250,7 +250,6 @@ class CoACDCapsulePipeline:
                         merge=False,
                         decimate=False,
                         max_ch_vertex=128,
-                        vlimit=16,
                         quiet=True
                     )
                     

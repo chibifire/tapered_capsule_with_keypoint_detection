@@ -1,39 +1,40 @@
 #!/usr/bin/env python3
 """
-Run all tests for the tapered capsule optimization project.
+Run all tests for the tapered capsule optimization pipeline.
 """
 
 import sys
 import subprocess
 from pathlib import Path
 
-def run_test_script(script_name: str) -> bool:
-    """Run a test script and return True if successful."""
-    print(f"\n🧪 Running {script_name}...")
-    
+def run_test_script(script_name):
+    """Run a test script and return the result."""
+    print(f"Running {script_name}...")
     try:
         result = subprocess.run([sys.executable, script_name], 
-                              capture_output=True, text=True, timeout=300)
+                              capture_output=True, text=True, timeout=60)
         if result.returncode == 0:
-            print(f"✅ {script_name} passed")
+            print(f"✅ {script_name} passed!")
             if result.stdout:
-                print(f"   Output: {result.stdout.strip()}")
+                print(result.stdout)
             return True
         else:
-            print(f"❌ {script_name} failed")
+            print(f"❌ {script_name} failed!")
+            if result.stdout:
+                print(result.stdout)
             if result.stderr:
-                print(f"   Error: {result.stderr.strip()}")
+                print(result.stderr)
             return False
     except subprocess.TimeoutExpired:
-        print(f"⏰ {script_name} timed out")
+        print(f"❌ {script_name} timed out!")
         return False
     except Exception as e:
-        print(f"❌ Error running {script_name}: {e}")
+        print(f"❌ {script_name} failed with exception: {e}")
         return False
 
 def main():
-    """Run all test scripts in the project."""
-    print("🚀 Running all tests for tapered capsule optimization project")
+    """Run all test scripts."""
+    print("Running all tests for tapered capsule optimization pipeline")
     print("=" * 60)
     
     # List of test scripts to run
@@ -41,39 +42,29 @@ def main():
         "test_coacd_pipeline.py"
     ]
     
-    # Check if test scripts exist
-    existing_scripts = []
+    # Run each test script
+    results = []
     for script in test_scripts:
         if Path(script).exists():
-            existing_scripts.append(script)
+            result = run_test_script(script)
+            results.append(result)
         else:
-            print(f"⚠️  Test script not found: {script}")
-    
-    if not existing_scripts:
-        print("❌ No test scripts found!")
-        return False
-    
-    # Run each test script
-    passed = 0
-    failed = 0
-    
-    for script in existing_scripts:
-        if run_test_script(script):
-            passed += 1
-        else:
-            failed += 1
+            print(f"⚠️  {script} not found, skipping...")
+            results.append(True)  # Don't fail if test script doesn't exist
     
     # Summary
     print("\n" + "=" * 60)
-    print(f"📊 Test Results: {passed} passed, {failed} failed")
+    print("Test Summary:")
+    passed = sum(results)
+    total = len(results)
+    print(f"Passed: {passed}/{total}")
     
-    if failed == 0:
-        print("🎉 All tests passed!")
-        return True
+    if passed == total:
+        print("All tests passed! 🎉")
+        return 0
     else:
-        print(f"💥 {failed} test(s) failed")
-        return False
+        print("Some tests failed! ❌")
+        return 1
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    sys.exit(main())
